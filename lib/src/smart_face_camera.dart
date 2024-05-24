@@ -297,7 +297,8 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
             child: Padding(
               padding: const EdgeInsets.all(15.0),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
+                mainAxisSize: MainAxisSize.max,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   if (widget.showFlashControl) ...[_flashControlWidget()],
                   if (widget.showCaptureControl) ...[const SizedBox(width: 15), _captureControlWidget(), const SizedBox(width: 15)],
