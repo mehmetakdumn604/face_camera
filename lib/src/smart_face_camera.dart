@@ -85,12 +85,11 @@ class SmartFaceCamera extends StatefulWidget {
   /// use this set no camera lens
   final Widget? noCameraWidget;
 
-//   onTimerStarted
-// onTimerFinished
-
   final void Function(int seconds) onTimerStarted;
 
   final void Function(int seconds) onTimerFinished;
+
+  final Function(CameraLens)? onToggleCameraLens;
 
   const SmartFaceCamera(
       {this.imageResolution = ImageResolution.medium,
@@ -119,7 +118,7 @@ class SmartFaceCamera extends StatefulWidget {
       this.noCameraWidget,
       Key? key,
       required this.onTimerStarted,
-      required this.onTimerFinished})
+      required this.onTimerFinished,  this.onToggleCameraLens})
       : assert(indicatorShape != IndicatorShape.image || indicatorAssetImage != null,
             'IndicatorAssetImage must be provided when IndicatorShape is set to image.'),
         super(key: key);
@@ -399,6 +398,7 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
             ? () {
                 _currentCameraLens = (_currentCameraLens + 1) % _availableCameraLens.length;
                 _initCamera();
+                widget.onToggleCameraLens?.call(_availableCameraLens[_currentCameraLens]);
               }
             : null);
   }
