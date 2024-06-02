@@ -82,14 +82,18 @@ class SmartFaceCamera extends StatefulWidget {
   /// Set true to automatically disable capture control widget when no face is detected.
   final bool autoDisableCaptureControl;
 
+
+  /// Use this to set your preferred performance mode.
+  final FaceDetectorMode performanceMode;
+
+  final Function(CameraLens)? onToggleCameraLens;
+
   /// use this set no camera lens
   final Widget? noCameraWidget;
 
   final void Function(int seconds) onTimerStarted;
 
   final void Function(int seconds) onTimerFinished;
-
-  final Function(CameraLens)? onToggleCameraLens;
 
   const SmartFaceCamera(
       {this.imageResolution = ImageResolution.medium,
@@ -350,7 +354,9 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
         log("On Long Press Finished");
         _onLongPressFinished();
       },
-      child: widget.captureControlBuilder?.call(context, _latestImage) ??
+
+      child: widget.captureControlBuilder?.call(context, _detectedFace) ??
+
           widget.captureControlIcon ??
           CircleAvatar(
               radius: 35,
@@ -360,6 +366,11 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
                 child: Icon(Icons.camera_alt, size: 35),
               )),
     );
+  }
+
+  void showInSnackBar(String message) {
+    if (!mounted && !kDebugMode) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Display the control buttons to switch between flash modes.
@@ -409,6 +420,7 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
     if (!mounted && !kDebugMode) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
+
 
   void onViewFinderTap(TapDownDetails details, BoxConstraints constraints) {
     if (_controller == null) {

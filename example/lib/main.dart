@@ -66,6 +66,10 @@ class _MyAppState extends State<MyApp> {
                 onCapture: (File? image) {
                   setState(() => _capturedImage = image);
                 },
+                
+                onFaceDetected: (Face? face) {
+                  //Do something
+                },
                 messageBuilder: (context, face) {
                   if (face == null) {
                     return _message('Place your face in the camera');
