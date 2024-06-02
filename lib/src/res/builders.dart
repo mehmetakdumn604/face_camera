@@ -1,3 +1,4 @@
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
 import '../../face_camera.dart';
@@ -8,12 +9,12 @@ typedef FlashControlBuilder = Widget Function(
 
 /// Returns message based on face position
 typedef MessageBuilder = Widget Function(
-    BuildContext context, DetectedFace? detectedFace);
+    BuildContext context, CameraImage? detectedFace);
 
 /// Returns widget for detector
 typedef IndicatorBuilder = Widget Function(
-    BuildContext context, DetectedFace? detectedFace, Size? imageSize);
+    BuildContext context, CameraImage? detectedFace, Size? imageSize);
 
 /// Returns widget for capture control
 typedef CaptureControlBuilder = Widget Function(
-    BuildContext context, DetectedFace? detectedFace);
+    BuildContext context, CameraImage? detectedFace);

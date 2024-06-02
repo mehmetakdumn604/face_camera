@@ -55,14 +55,16 @@ class _MyAppState extends State<MyApp> {
             return SmartFaceCamera(
                 autoCapture: true,
                 defaultCameraLens: CameraLens.front,
-                onCapture: (File? image) {
-                  setState(() => _capturedImage = image);
-                },
                 onTimerStarted: (seconds) {
-                  
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Video Timer started: $seconds seconds')));
                 },
                 onTimerFinished: (seconds) {
-                  
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(const SnackBar(content: Text('Video Timer finished')));
+                },
+                onCapture: (File? image) {
+                  setState(() => _capturedImage = image);
                 },
                 
                 onFaceDetected: (Face? face) {
@@ -71,9 +73,6 @@ class _MyAppState extends State<MyApp> {
                 messageBuilder: (context, face) {
                   if (face == null) {
                     return _message('Place your face in the camera');
-                  }
-                  if (!face.wellPositioned) {
-                    return _message('Center your face in the square');
                   }
                   return const SizedBox.shrink();
                 });

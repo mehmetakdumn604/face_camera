@@ -8,8 +8,6 @@ import 'package:flutter/material.dart';
 
 import '../face_camera.dart';
 import 'handlers/enum_handler.dart';
-import 'handlers/face_identifier.dart';
-import 'paints/face_painter.dart';
 import 'paints/hole_painter.dart';
 import 'res/builders.dart';
 import 'utils/logger.dart';
@@ -55,7 +53,7 @@ class SmartFaceCamera extends StatefulWidget {
   final void Function(File? image) onCapture;
 
   /// Callback invoked when camera detects face.
-  final void Function(Face? face)? onFaceDetected;
+  final void Function(CameraImage? face)? onFaceDetected;
 
   /// Use this to render a custom widget for capture control.
   final Widget? captureControlIcon;
@@ -84,6 +82,7 @@ class SmartFaceCamera extends StatefulWidget {
   /// Set true to automatically disable capture control widget when no face is detected.
   final bool autoDisableCaptureControl;
 
+
   /// Use this to set your preferred performance mode.
   final FaceDetectorMode performanceMode;
 
@@ -91,9 +90,6 @@ class SmartFaceCamera extends StatefulWidget {
 
   /// use this set no camera lens
   final Widget? noCameraWidget;
-
-  //   onTimerStarted
-// onTimerFinished
 
   final void Function(int seconds) onTimerStarted;
 
@@ -123,12 +119,10 @@ class SmartFaceCamera extends StatefulWidget {
       this.indicatorAssetImage,
       this.indicatorBuilder,
       this.autoDisableCaptureControl = false,
-      this.performanceMode = FaceDetectorMode.fast,
       this.noCameraWidget,
       Key? key,
-      this.onToggleCameraLens,
       required this.onTimerStarted,
-      required this.onTimerFinished})
+      required this.onTimerFinished,  this.onToggleCameraLens})
       : assert(indicatorShape != IndicatorShape.image || indicatorAssetImage != null,
             'IndicatorAssetImage must be provided when IndicatorShape is set to image.'),
         super(key: key);
@@ -142,7 +136,7 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
 
   bool _alreadyCheckingImage = false;
 
-  DetectedFace? _detectedFace;
+  CameraImage? _latestImage;
 
   int _currentFlashMode = 0;
   final List<CameraFlashMode> _availableFlashMode = [CameraFlashMode.off, CameraFlashMode.auto, CameraFlashMode.always];
@@ -262,27 +256,17 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
                       fit: StackFit.expand,
                       children: <Widget>[
                         _cameraDisplayWidget(),
-                        if (_detectedFace != null && widget.indicatorShape != IndicatorShape.none) ...[
+                        if (_latestImage != null && widget.indicatorShape != IndicatorShape.none) ...[
                           SizedBox(
                               width: cameraController.value.previewSize!.width,
                               height: cameraController.value.previewSize!.height,
                               child: widget.indicatorBuilder?.call(
-                                      context,
-                                      _detectedFace,
-                                      Size(
-                                        _controller!.value.previewSize!.height,
-                                        _controller!.value.previewSize!.width,
-                                      )) ??
-                                  CustomPaint(
-                                    painter: FacePainter(
-                                        face: _detectedFace!.face,
-                                        indicatorShape: widget.indicatorShape,
-                                        indicatorAssetImage: widget.indicatorAssetImage,
-                                        imageSize: Size(
-                                          _controller!.value.previewSize!.height,
-                                          _controller!.value.previewSize!.width,
-                                        )),
-                                  ))
+                                  context,
+                                  _latestImage,
+                                  Size(
+                                    _controller!.value.previewSize!.height,
+                                    _controller!.value.previewSize!.width,
+                                  )))
                         ]
                       ],
                     ),
@@ -332,7 +316,7 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
     if (cameraController != null && cameraController.value.isInitialized) {
       return CameraPreview(cameraController, child: Builder(builder: (context) {
         if (widget.messageBuilder != null) {
-          return widget.messageBuilder!.call(context, _detectedFace);
+          return widget.messageBuilder!.call(context, _latestImage);
         }
         if (widget.message != null) {
           return Padding(
@@ -353,7 +337,7 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
   }
 
   /// Determines when to disable the capture control button.
-  bool get _disableCapture => widget.autoDisableCaptureControl && _detectedFace?.face == null;
+  bool get _disableCapture => widget.autoDisableCaptureControl && _latestImage == null;
 
   /// Determines the camera controls color.
   Color? get iconColor => _enableControls ? null : Theme.of(context).disabledColor;
@@ -370,7 +354,9 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
         log("On Long Press Finished");
         _onLongPressFinished();
       },
+
       child: widget.captureControlBuilder?.call(context, _detectedFace) ??
+
           widget.captureControlIcon ??
           CircleAvatar(
               radius: 35,
@@ -429,6 +415,12 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
   }
 
   String timestamp() => DateTime.now().millisecondsSinceEpoch.toString();
+
+  void showInSnackBar(String message) {
+    if (!mounted && !kDebugMode) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
 
   void onViewFinderTap(TapDownDetails details, BoxConstraints constraints) {
     if (_controller == null) {
@@ -550,25 +542,10 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
     if (!_alreadyCheckingImage && mounted) {
       _alreadyCheckingImage = true;
       try {
-        await FaceIdentifier.scanImage(cameraImage: cameraImage, controller: cameraController, performanceMode: widget.performanceMode)
-            .then((result) async {
-          setState(() => _detectedFace = result);
-
-          if (result != null) {
-            try {
-              if (result.wellPositioned) {
-                if (widget.onFaceDetected != null) {
-                  widget.onFaceDetected!.call(result.face);
-                }
-                if (widget.autoCapture) {
-                  _onTakePictureButtonPressed();
-                }
-              }
-            } catch (e) {
-              logError(e.toString());
-            }
-          }
+        setState(() {
+          _latestImage = cameraImage;
         });
+
         _alreadyCheckingImage = false;
       } catch (ex, stack) {
         logError('$ex, $stack');
