@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../face_camera.dart';
@@ -85,8 +87,17 @@ class SmartFaceCamera extends StatefulWidget {
   /// Use this to set your preferred performance mode.
   final FaceDetectorMode performanceMode;
 
+  final Function(CameraLens)? onToggleCameraLens;
+
   /// use this set no camera lens
   final Widget? noCameraWidget;
+
+  //   onTimerStarted
+// onTimerFinished
+
+  final void Function(int seconds) onTimerStarted;
+
+  final void Function(int seconds) onTimerFinished;
 
   const SmartFaceCamera(
       {this.imageResolution = ImageResolution.medium,
@@ -114,7 +125,10 @@ class SmartFaceCamera extends StatefulWidget {
       this.autoDisableCaptureControl = false,
       this.performanceMode = FaceDetectorMode.fast,
       this.noCameraWidget,
-      Key? key})
+      Key? key,
+      this.onToggleCameraLens,
+      required this.onTimerStarted,
+      required this.onTimerFinished})
       : assert(indicatorShape != IndicatorShape.image || indicatorAssetImage != null,
             'IndicatorAssetImage must be provided when IndicatorShape is set to image.'),
         super(key: key);
@@ -346,8 +360,17 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
 
   /// Display the control buttons to take pictures.
   Widget _captureControlWidget() {
-    return IconButton(
-      icon: widget.captureControlBuilder?.call(context, _detectedFace) ??
+    return GestureDetector(
+      onTap: _enableControls && !_disableCapture ? _onTakePictureButtonPressed : null,
+      onLongPressStart: (_) {
+        log("On Long Press started");
+        _onLongPressStart();
+      },
+      onLongPressUp: () {
+        log("On Long Press Finished");
+        _onLongPressFinished();
+      },
+      child: widget.captureControlBuilder?.call(context, _detectedFace) ??
           widget.captureControlIcon ??
           CircleAvatar(
               radius: 35,
@@ -356,8 +379,12 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
                 padding: EdgeInsets.all(8.0),
                 child: Icon(Icons.camera_alt, size: 35),
               )),
-      onPressed: _enableControls && !_disableCapture ? _onTakePictureButtonPressed : null,
     );
+  }
+
+  void showInSnackBar(String message) {
+    if (!mounted && !kDebugMode) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Display the control buttons to switch between flash modes.
@@ -396,15 +423,12 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
             ? () {
                 _currentCameraLens = (_currentCameraLens + 1) % _availableCameraLens.length;
                 _initCamera();
+                widget.onToggleCameraLens?.call(_availableCameraLens[_currentCameraLens]);
               }
             : null);
   }
 
   String timestamp() => DateTime.now().millisecondsSinceEpoch.toString();
-
-  void showInSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-  }
 
   void onViewFinderTap(TapDownDetails details, BoxConstraints constraints) {
     if (_controller == null) {
@@ -419,6 +443,45 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
     );
     cameraController.setExposurePoint(offset);
     cameraController.setFocusPoint(offset);
+  }
+
+  Timer? _timer;
+  void _onLongPressStart() async {
+    final CameraController? cameraController = _controller;
+    widget.onTimerStarted(15);
+
+    if (cameraController?.value.isStreamingImages == true) {
+      await cameraController?.stopImageStream();
+    }
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (timer.tick == 15) {
+        _onLongPressFinished();
+      }
+    });
+    await cameraController?.startVideoRecording();
+  }
+
+  void _onLongPressFinished() {
+    widget.onTimerFinished(_timer?.tick ?? 0);
+    _timer?.cancel();
+    final CameraController? cameraController = _controller;
+    if (cameraController?.value.isRecordingVideo != true) return;
+    cameraController?.stopVideoRecording().then((XFile video) {
+      /// Return image callback
+      widget.onCapture(File(video.path));
+
+      /// Resume image stream after 2 seconds of capture
+      Future.delayed(const Duration(seconds: 2)).whenComplete(() {
+        if (mounted && cameraController.value.isInitialized) {
+          try {
+            _startImageStream();
+          } catch (e) {
+            logError(e.toString());
+          }
+        }
+      });
+    });
   }
 
   void _onTakePictureButtonPressed() async {

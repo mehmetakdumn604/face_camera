@@ -58,6 +58,13 @@ class _MyAppState extends State<MyApp> {
                 onCapture: (File? image) {
                   setState(() => _capturedImage = image);
                 },
+                onTimerStarted: (seconds) {
+                  
+                },
+                onTimerFinished: (seconds) {
+                  
+                },
+                
                 onFaceDetected: (Face? face) {
                   //Do something
                 },
