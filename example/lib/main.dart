@@ -55,7 +55,7 @@ class _MyAppState extends State<MyApp> {
             return SmartFaceCamera(
                 autoCapture: true,
                 defaultCameraLens: CameraLens.front,
-                onCapture: (File? image) {
+                onCapture: (File? image, DetectedFace? face) {
                   setState(() => _capturedImage = image);
                 },
                 onTimerStarted: (seconds) {

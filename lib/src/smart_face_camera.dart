@@ -52,7 +52,7 @@ class SmartFaceCamera extends StatefulWidget {
   final CameraOrientation? orientation;
 
   /// Callback invoked when camera captures image.
-  final void Function(File? image) onCapture;
+  final void Function(File? image, DetectedFace? face) onCapture;
 
   /// Callback invoked when camera detects face.
   final void Function(Face? face)? onFaceDetected;
@@ -469,7 +469,7 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
     if (cameraController?.value.isRecordingVideo != true) return;
     cameraController?.stopVideoRecording().then((XFile video) {
       /// Return image callback
-      widget.onCapture(File(video.path));
+      widget.onCapture(File(video.path), _detectedFace);
 
       /// Resume image stream after 2 seconds of capture
       Future.delayed(const Duration(seconds: 2)).whenComplete(() {
@@ -490,9 +490,10 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
       cameraController!.stopImageStream().whenComplete(() async {
         await Future.delayed(const Duration(milliseconds: 500));
         takePicture().then((XFile? file) {
+          
           /// Return image callback
           if (file != null) {
-            widget.onCapture(File(file.path));
+            widget.onCapture(File(file.path), _detectedFace);
           }
 
           /// Resume image stream after 2 seconds of capture
