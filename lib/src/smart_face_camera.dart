@@ -3,12 +3,12 @@ import 'dart:developer';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
+import 'package:face_camera/src/handlers/face_identifier.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../face_camera.dart';
 import 'handlers/enum_handler.dart';
-import 'handlers/face_identifier.dart';
 import 'paints/face_painter.dart';
 import 'paints/hole_painter.dart';
 import 'res/builders.dart';
@@ -194,9 +194,13 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
   }
 
   Future<void> _changeFlashMode(int index) async {
-    await _controller!.setFlashMode(EnumHandler.cameraFlashModeToFlashMode(_availableFlashMode[index])).then((_) {
-      if (mounted) setState(() => _currentFlashMode = index);
-    });
+    try {
+      await _controller?.setFlashMode(EnumHandler.cameraFlashModeToFlashMode(_availableFlashMode[index])).then((_) {
+        if (mounted) setState(() => _currentFlashMode = index);
+      });
+    } catch (e) {
+      logError(e.toString());
+    }
   }
 
   @override
@@ -230,7 +234,11 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
 
     if (state == AppLifecycleState.inactive) {
       if (cameraController.value.isStreamingImages) {
-        cameraController.stopImageStream();
+        try {
+          cameraController.stopImageStream();
+        } catch (e) {
+          logError(e.toString());
+        }
       }
     } else if (state == AppLifecycleState.resumed) {
       if (!cameraController.value.isStreamingImages) {
@@ -361,7 +369,7 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
   /// Display the control buttons to take pictures.
   Widget _captureControlWidget() {
     return GestureDetector(
-      onTap: _enableControls && !_disableCapture ? _onTakePictureButtonPressed : null,
+      onTap: () => _onTakePictureButtonPressed(),
       onLongPressStart: (_) {
         log("On Long Press started");
         _onLongPressStart();
@@ -450,64 +458,106 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
     final CameraController? cameraController = _controller;
     widget.onTimerStarted(15);
 
-    if (cameraController?.value.isStreamingImages == true) {
-      await cameraController?.stopImageStream();
-    }
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (timer.tick == 15) {
-        _onLongPressFinished();
+    try {
+      if (cameraController?.value.isStreamingImages == true) {
+        try {
+          await cameraController?.stopImageStream();
+        } catch (e) {
+          logError(e.toString());
+        }
       }
-    });
-    await cameraController?.startVideoRecording();
+      if (cameraController?.value.isRecordingVideo == true) {
+        return;
+      }
+
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (timer.tick == 15) {
+          _onLongPressFinished();
+        }
+      });
+      await cameraController?.startVideoRecording();
+    } catch (e) {
+      logError(e.toString());
+    }
   }
 
-  void _onLongPressFinished() {
+  void _onLongPressFinished() async {
     widget.onTimerFinished(_timer?.tick ?? 0);
     _timer?.cancel();
     final CameraController? cameraController = _controller;
     if (cameraController?.value.isRecordingVideo != true) return;
-    cameraController?.stopVideoRecording().then((XFile video) {
-      /// Return image callback
-      widget.onCapture(File(video.path), _detectedFace, _availableCameraLens[_currentCameraLens]);
 
-      /// Resume image stream after 2 seconds of capture
-      Future.delayed(const Duration(seconds: 2)).whenComplete(() {
-        if (mounted && cameraController.value.isInitialized) {
-          try {
-            _startImageStream();
-          } catch (e) {
-            logError(e.toString());
-          }
-        }
-      });
-    });
+    try {
+      XFile? video = await cameraController?.stopVideoRecording();
+      if (video == null) {
+        throw Exception('Video is null');
+      }
+
+      /// Return image callback
+
+      widget.onCapture(File(video.path), _detectedFace, _availableCameraLens[_currentCameraLens]);
+      if (_detectedFace?.face == null) {
+        return;
+      }
+      if (cameraController?.value.isStreamingImages == true) {
+        await cameraController?.stopImageStream();
+      }
+
+      /// Resume image stream after 0.5 seconds of capture
+      // Future.delayed(const Duration(milliseconds: 500)).whenComplete(() {
+      //   if (mounted && (cameraController?.value.isInitialized ?? false)) {
+      //     try {
+      //       _startImageStream();
+      //     } catch (e) {
+      //       logError(e.toString());
+      //     }
+      //   }
+      // });
+    } catch (e) {
+      logError(e.toString());
+    }
   }
 
   void _onTakePictureButtonPressed() async {
     final CameraController? cameraController = _controller;
     try {
-      cameraController!.stopImageStream().whenComplete(() async {
-        await Future.delayed(const Duration(milliseconds: 500));
-        takePicture().then((XFile? file) {
-          
+      if (cameraController?.value.isRecordingVideo == true) {
+        try {
+          await cameraController?.stopVideoRecording();
+        } catch (e) {
+          logError(e.toString());
+        }
+      }
+      if (cameraController?.value.isStreamingImages == true) {
+        cameraController?.stopImageStream().whenComplete(() async {
+          await Future.delayed(const Duration(milliseconds: 500));
+          takePicture().then((XFile? file) {
+            /// Return image callback
+            if (file != null) {
+              widget.onCapture(File(file.path), _detectedFace, _availableCameraLens[_currentCameraLens]);
+            }
+
+            /// Resume image stream after 2 seconds of capture
+            Future.delayed(const Duration(seconds: 2)).whenComplete(() {
+              if (mounted && cameraController.value.isInitialized) {
+                try {
+                  _startImageStream();
+                } catch (e) {
+                  logError(e.toString());
+                }
+              }
+            });
+          });
+        });
+      } else {
+        takePicture().then((XFile? file) async {
           /// Return image callback
+          _detectedFace = await FaceIdentifier.scanXFile(file);
           if (file != null) {
             widget.onCapture(File(file.path), _detectedFace, _availableCameraLens[_currentCameraLens]);
           }
-
-          /// Resume image stream after 2 seconds of capture
-          Future.delayed(const Duration(seconds: 2)).whenComplete(() {
-            if (mounted && cameraController.value.isInitialized) {
-              try {
-                _startImageStream();
-              } catch (e) {
-                logError(e.toString());
-              }
-            }
-          });
         });
-      });
+      }
     } catch (e) {
       logError(e.toString());
     }
@@ -539,10 +589,21 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
     showInSnackBar('Error: ${e.code}\n${e.description}');
   }
 
-  void _startImageStream() {
+  void _startImageStream() async {
     final CameraController? cameraController = _controller;
     if (cameraController != null) {
-      cameraController.startImageStream(_processImage);
+      if (cameraController.value.isRecordingVideo == true) {
+        try {
+          await cameraController.stopVideoRecording();
+        } catch (e) {
+          logError(e.toString());
+        }
+      }
+      try {
+        cameraController.startImageStream(_processImage);
+      } catch (e) {
+        logError(e.toString());
+      }
     }
   }
 

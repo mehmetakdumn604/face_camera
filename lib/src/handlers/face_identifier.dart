@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -8,9 +9,7 @@ import '../models/detected_image.dart';
 
 class FaceIdentifier {
   static Future<DetectedFace?> scanImage(
-      {required CameraImage cameraImage,
-      required CameraController? controller,
-      required FaceDetectorMode performanceMode}) async {
+      {required CameraImage cameraImage, required CameraController? controller, required FaceDetectorMode performanceMode}) async {
     final orientations = {
       DeviceOrientation.portraitUp: 0,
       DeviceOrientation.landscapeLeft: 90,
@@ -19,10 +18,7 @@ class FaceIdentifier {
     };
 
     DetectedFace? result;
-    final face = await _detectFace(
-        performanceMode: performanceMode,
-        visionImage:
-            _inputImageFromCameraImage(cameraImage, controller, orientations));
+    final face = await _detectFace(performanceMode: performanceMode, visionImage: _inputImageFromCameraImage(cameraImage, controller, orientations));
     if (face != null) {
       result = face;
     }
@@ -30,8 +26,21 @@ class FaceIdentifier {
     return result;
   }
 
-  static InputImage? _inputImageFromCameraImage(CameraImage image,
-      CameraController? controller, Map<DeviceOrientation, int> orientations) {
+  static Future<DetectedFace?> scanXFile(XFile? imageFile) async {
+    if (imageFile == null) {
+      return null;
+  
+    }
+    final options = FaceDetectorOptions(enableLandmarks: true, enableTracking: true, performanceMode: FaceDetectorMode.fast);
+    final faceDetector = FaceDetector(options: options);
+    final image = InputImage.fromFilePath(imageFile.path);
+    final List<Face> faces = await faceDetector.processImage(image);
+
+    final faceDetect = _extractFace(faces);
+    return faceDetect;
+  }
+
+  static InputImage? _inputImageFromCameraImage(CameraImage image, CameraController? controller, Map<DeviceOrientation, int> orientations) {
     // get image rotation
     // it is used in android to convert the InputImage from Dart to Java
     // `rotation` is not used in iOS to convert the InputImage from Dart to Obj-C
@@ -42,16 +51,14 @@ class FaceIdentifier {
     if (Platform.isIOS) {
       rotation = InputImageRotationValue.fromRawValue(sensorOrientation);
     } else if (Platform.isAndroid) {
-      var rotationCompensation =
-          orientations[controller.value.deviceOrientation];
+      var rotationCompensation = orientations[controller.value.deviceOrientation];
       if (rotationCompensation == null) return null;
       if (camera.lensDirection == CameraLensDirection.front) {
         // front-facing
         rotationCompensation = (sensorOrientation + rotationCompensation) % 360;
       } else {
         // back-facing
-        rotationCompensation =
-            (sensorOrientation - rotationCompensation + 360) % 360;
+        rotationCompensation = (sensorOrientation - rotationCompensation + 360) % 360;
       }
       rotation = InputImageRotationValue.fromRawValue(rotationCompensation);
     }
@@ -63,9 +70,9 @@ class FaceIdentifier {
     // only supported formats:
     // * nv21 for Android
     // * bgra8888 for iOS
-    if (format == null ||
-        (Platform.isAndroid && format != InputImageFormat.nv21) ||
-        (Platform.isIOS && format != InputImageFormat.bgra8888)) return null;
+    if (format == null || (Platform.isAndroid && format != InputImageFormat.nv21) || (Platform.isIOS && format != InputImageFormat.bgra8888)) {
+      return null;
+    }
 
     // since format is constraint to nv21 or bgra8888, both only have one plane
     if (image.planes.length != 1) return null;
@@ -83,14 +90,9 @@ class FaceIdentifier {
     );
   }
 
-  static Future<DetectedFace?> _detectFace(
-      {required InputImage? visionImage,
-      required FaceDetectorMode performanceMode}) async {
+  static Future<DetectedFace?> _detectFace({required InputImage? visionImage, required FaceDetectorMode performanceMode}) async {
     if (visionImage == null) return null;
-    final options = FaceDetectorOptions(
-        enableLandmarks: true,
-        enableTracking: true,
-        performanceMode: performanceMode);
+    final options = FaceDetectorOptions(enableLandmarks: true, enableTracking: true, performanceMode: performanceMode);
     final faceDetector = FaceDetector(options: options);
     try {
       final List<Face> faces = await faceDetector.processImage(visionImage);
@@ -125,19 +127,11 @@ class FaceIdentifier {
       // eyes, cheeks, and nose available):
       final FaceLandmark? leftEar = face.landmarks[FaceLandmarkType.leftEar];
       final FaceLandmark? rightEar = face.landmarks[FaceLandmarkType.rightEar];
-      final FaceLandmark? bottomMouth =
-          face.landmarks[FaceLandmarkType.bottomMouth];
-      final FaceLandmark? rightMouth =
-          face.landmarks[FaceLandmarkType.rightMouth];
-      final FaceLandmark? leftMouth =
-          face.landmarks[FaceLandmarkType.leftMouth];
+      final FaceLandmark? bottomMouth = face.landmarks[FaceLandmarkType.bottomMouth];
+      final FaceLandmark? rightMouth = face.landmarks[FaceLandmarkType.rightMouth];
+      final FaceLandmark? leftMouth = face.landmarks[FaceLandmarkType.leftMouth];
       final FaceLandmark? noseBase = face.landmarks[FaceLandmarkType.noseBase];
-      if (leftEar == null ||
-          rightEar == null ||
-          bottomMouth == null ||
-          rightMouth == null ||
-          leftMouth == null ||
-          noseBase == null) {
+      if (leftEar == null || rightEar == null || bottomMouth == null || rightMouth == null || leftMouth == null || noseBase == null) {
         wellPositioned = false;
       }
 
