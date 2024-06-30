@@ -318,19 +318,50 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
             alignment: Alignment.bottomCenter,
             child: Padding(
               padding: const EdgeInsets.all(15.0),
-              child: Row(
-                mainAxisSize: MainAxisSize.max,
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (widget.showFlashControl) ...[_flashControlWidget()],
-                  if (widget.showCaptureControl) ...[const SizedBox(width: 15), _captureControlWidget(), const SizedBox(width: 15)],
-                  if (widget.showCameraLensControl) ...[_lensControlWidget()],
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      zoomCircle(1),
+                      const SizedBox(width: 5),
+                      zoomCircle(1.2),
+                      const SizedBox(width: 5),
+                      zoomCircle(2.5),
+                    ],
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.max,
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      if (widget.showFlashControl) ...[_flashControlWidget()],
+                      if (widget.showCaptureControl) ...[const SizedBox(width: 15), _captureControlWidget(), const SizedBox(width: 15)],
+                      if (widget.showCameraLensControl) ...[_lensControlWidget()],
+                    ],
+                  ),
                 ],
               ),
             ),
           )
         ]
       ],
+    );
+  }
+
+  Widget zoomCircle(double zoomLevel) {
+    return GestureDetector(
+      onTap: () {
+        _controller?.setZoomLevel(zoomLevel);
+      },
+      child: CircleAvatar(
+        radius: 25,
+        backgroundColor: Colors.black.withOpacity(.5),
+        child: Text(
+          (zoomLevel - 0.5).toString(),
+          style: const TextStyle(color: Colors.white),
+        ),
+      ),
     );
   }
 
@@ -456,6 +487,8 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
   Timer? _timer;
   void _onLongPressStart() async {
     final CameraController? cameraController = _controller;
+    await cameraController?.prepareForVideoRecording();
+
     widget.onTimerStarted(15);
 
     try {
