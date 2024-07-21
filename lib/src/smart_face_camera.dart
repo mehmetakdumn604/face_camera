@@ -3,9 +3,12 @@ import 'dart:developer';
 import 'dart:io';
 
 import 'package:camera/camera.dart';
+import 'package:face_camera/src/controllers/face_camera_controller.dart';
 import 'package:face_camera/src/handlers/face_identifier.dart';
+import 'package:face_camera/src/widgets/zoom_circle_row.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../face_camera.dart';
 import 'handlers/enum_handler.dart';
@@ -180,6 +183,8 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
         if (!mounted) {
           return;
         }
+        _controller?.setZoomLevel(1.2);
+
         setState(() {});
       });
 
@@ -251,117 +256,106 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final CameraController? cameraController = _controller;
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        if (cameraController != null && cameraController.value.isInitialized) ...[
-          Transform.scale(
-            scale: 1.0,
-            child: AspectRatio(
-              aspectRatio: size.aspectRatio,
-              child: OverflowBox(
-                alignment: Alignment.center,
-                child: FittedBox(
-                  fit: BoxFit.fitHeight,
-                  child: SizedBox(
-                    width: size.width,
-                    height: size.width * cameraController.value.aspectRatio,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: <Widget>[
-                        _cameraDisplayWidget(),
-                        if (_detectedFace != null && widget.indicatorShape != IndicatorShape.none) ...[
-                          SizedBox(
-                              width: cameraController.value.previewSize!.width,
-                              height: cameraController.value.previewSize!.height,
-                              child: widget.indicatorBuilder?.call(
-                                      context,
-                                      _detectedFace,
-                                      Size(
-                                        _controller!.value.previewSize!.height,
-                                        _controller!.value.previewSize!.width,
-                                      )) ??
-                                  CustomPaint(
-                                    painter: FacePainter(
-                                        face: _detectedFace!.face,
-                                        indicatorShape: widget.indicatorShape,
-                                        indicatorAssetImage: widget.indicatorAssetImage,
-                                        imageSize: Size(
-                                          _controller!.value.previewSize!.height,
-                                          _controller!.value.previewSize!.width,
-                                        )),
-                                  ))
-                        ]
+    return ChangeNotifierProvider<FaceCameraController>(
+      create: (context) => FaceCameraController(),
+      builder: (context, child) {
+        final FaceCameraController faceCameraController = context.watch<FaceCameraController>();
+        return GestureDetector(
+          onScaleStart: faceCameraController.onScaleStart,
+          onScaleUpdate: (details) => faceCameraController.onScaleUpdate(details, cameraController),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (cameraController != null && cameraController.value.isInitialized) ...[
+                Transform.scale(
+                  scale: 1.0,
+                  child: AspectRatio(
+                    aspectRatio: size.aspectRatio,
+                    child: OverflowBox(
+                      alignment: Alignment.center,
+                      child: FittedBox(
+                        fit: BoxFit.fitHeight,
+                        child: SizedBox(
+                          width: size.width,
+                          height: size.width * cameraController.value.aspectRatio,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: <Widget>[
+                              _cameraDisplayWidget(),
+                              if (_detectedFace != null && widget.indicatorShape != IndicatorShape.none) ...[
+                                SizedBox(
+                                    width: cameraController.value.previewSize!.width,
+                                    height: cameraController.value.previewSize!.height,
+                                    child: widget.indicatorBuilder?.call(
+                                            context,
+                                            _detectedFace,
+                                            Size(
+                                              _controller!.value.previewSize!.height,
+                                              _controller!.value.previewSize!.width,
+                                            )) ??
+                                        CustomPaint(
+                                          painter: FacePainter(
+                                              face: _detectedFace!.face,
+                                              indicatorShape: widget.indicatorShape,
+                                              indicatorAssetImage: widget.indicatorAssetImage,
+                                              imageSize: Size(
+                                                _controller!.value.previewSize!.height,
+                                                _controller!.value.previewSize!.width,
+                                              )),
+                                        ))
+                              ]
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              ] else
+                ...(widget.noCameraWidget != null
+                    ? [widget.noCameraWidget!]
+                    : [
+                        const Text('No Camera Detected',
+                            style: TextStyle(
+                              fontSize: 18.0,
+                              fontWeight: FontWeight.w500,
+                            )),
+                        CustomPaint(
+                          size: size,
+                          painter: HolePainter(),
+                        )
+                      ]),
+              if (widget.showControls) ...[
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.all(15.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ZoomCircleRow(cameraController: cameraController),
+                        Row(
+                          mainAxisSize: MainAxisSize.max,
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            if (widget.showFlashControl) ...[_flashControlWidget()],
+                            if (widget.showCaptureControl) ...[
+                              const SizedBox(width: 15),
+                              _captureControlWidget(),
+                              const SizedBox(width: 15)
+                            ],
+                            if (widget.showCameraLensControl) ...[_lensControlWidget(faceCameraController: faceCameraController)],
+                          ],
+                        ),
                       ],
                     ),
                   ),
-                ),
-              ),
-            ),
-          )
-        ] else
-          ...(widget.noCameraWidget != null
-              ? [widget.noCameraWidget!]
-              : [
-                  const Text('No Camera Detected',
-                      style: TextStyle(
-                        fontSize: 18.0,
-                        fontWeight: FontWeight.w500,
-                      )),
-                  CustomPaint(
-                    size: size,
-                    painter: HolePainter(),
-                  )
-                ]),
-        if (widget.showControls) ...[
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: const EdgeInsets.all(15.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      zoomCircle(1),
-                      const SizedBox(width: 5),
-                      zoomCircle(1.2),
-                      const SizedBox(width: 5),
-                      zoomCircle(2.5),
-                    ],
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.max,
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      if (widget.showFlashControl) ...[_flashControlWidget()],
-                      if (widget.showCaptureControl) ...[const SizedBox(width: 15), _captureControlWidget(), const SizedBox(width: 15)],
-                      if (widget.showCameraLensControl) ...[_lensControlWidget()],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          )
-        ]
-      ],
-    );
-  }
-
-  Widget zoomCircle(double zoomLevel) {
-    return GestureDetector(
-      onTap: () {
-        _controller?.setZoomLevel(zoomLevel);
+                )
+              ]
+            ],
+          ),
+        );
       },
-      child: CircleAvatar(
-        radius: 25,
-        backgroundColor: Colors.black.withOpacity(.5),
-        child: Text(
-          (zoomLevel - 0.5).toString(),
-          style: const TextStyle(color: Colors.white),
-        ),
-      ),
     );
   }
 
@@ -448,7 +442,7 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
   }
 
   /// Display the control buttons to switch between camera lens.
-  Widget _lensControlWidget() {
+  Widget _lensControlWidget({required FaceCameraController faceCameraController}) {
     return IconButton(
         icon: widget.lensControlIcon ??
             CircleAvatar(
@@ -462,6 +456,7 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
             ? () {
                 _currentCameraLens = (_currentCameraLens + 1) % _availableCameraLens.length;
                 _initCamera();
+                faceCameraController.scaleFactor = 1.2;
                 widget.onToggleCameraLens?.call(_availableCameraLens[_currentCameraLens]);
               }
             : null);
