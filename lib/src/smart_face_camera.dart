@@ -329,22 +329,26 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
                 Align(
                   alignment: Alignment.bottomCenter,
                   child: Padding(
-                    padding: const EdgeInsets.all(15.0),
+                    padding: const EdgeInsets.all(12.0),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         ZoomCircleRow(cameraController: cameraController),
                         Row(
                           mainAxisSize: MainAxisSize.max,
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
+                            SizedBox(width: 15),
                             if (widget.showFlashControl) ...[_flashControlWidget()],
+                            SizedBox(width: 15),
+
                             if (widget.showCaptureControl) ...[
-                              const SizedBox(width: 15),
+                              Spacer(),
                               _captureControlWidget(),
-                              const SizedBox(width: 15)
+                              Spacer(),
                             ],
                             if (widget.showCameraLensControl) ...[_lensControlWidget(faceCameraController: faceCameraController)],
+                            SizedBox(width: 15),
                           ],
                         ),
                       ],
@@ -640,7 +644,8 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
     if (!_alreadyCheckingImage && mounted) {
       _alreadyCheckingImage = true;
       try {
-        await FaceIdentifier.scanImage(cameraImage: cameraImage, controller: cameraController, performanceMode: widget.performanceMode)
+        await FaceIdentifier.scanImage(
+                cameraImage: cameraImage, controller: cameraController, performanceMode: widget.performanceMode)
             .then((result) async {
           setState(() => _detectedFace = result);
 
