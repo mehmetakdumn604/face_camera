@@ -14,10 +14,10 @@ class ZoomCircleRow extends StatelessWidget {
     final FaceCameraController faceCameraController = context.watch<FaceCameraController>();
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.black26,
+        borderRadius: BorderRadius.circular(80),
+        color: Colors.black.withOpacity(.15),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
@@ -31,14 +31,14 @@ class ZoomCircleRow extends StatelessWidget {
           const SizedBox(width: 5),
           zoomCircle(
             zoomLevel: 1.2,
-            displayValue: "1",
+            displayValue: "1.0",
             faceCameraController: faceCameraController,
             controller: cameraController,
           ),
           const SizedBox(width: 5),
           zoomCircle(
             zoomLevel: 2,
-            displayValue: "2",
+            displayValue: "2.0",
             faceCameraController: faceCameraController,
             controller: cameraController,
           ),
@@ -61,19 +61,20 @@ class ZoomCircleRow extends StatelessWidget {
   }
 
   Widget zoomCircle(
-      {required double zoomLevel,
-      required String displayValue,
-      required FaceCameraController faceCameraController,
-      CameraController? controller}) {
+      {required double zoomLevel, required String displayValue, required FaceCameraController faceCameraController, CameraController? controller}) {
     final bool isSelected = isSelectedZoomCircle(faceCameraController.scaleFactor, zoomLevel);
     return GestureDetector(
       onTap: () => faceCameraController.onTapZoomLevel(zoomLevel, controller),
       child: CircleAvatar(
         radius: 20,
-        backgroundColor: isSelected ? Colors.orange : Colors.black.withOpacity(.5),
+        backgroundColor: Colors.black.withOpacity(.25),
         child: Text(
           zoomDisplayText(isSelected, faceCameraController, displayValue),
-          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: isSelected ? const Color(0xffFFB700) : Colors.white,
+            fontSize: 10,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+          ),
         ),
       ),
     );
