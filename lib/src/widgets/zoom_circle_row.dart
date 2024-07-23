@@ -72,7 +72,7 @@ class ZoomCircleRow extends StatelessWidget {
           zoomDisplayText(isSelected, faceCameraController, displayValue),
           style: TextStyle(
             color: isSelected ? const Color(0xffFFB700) : Colors.white,
-            fontSize: 10,
+            fontSize: 14,
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
