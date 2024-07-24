@@ -486,6 +486,7 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
   Timer? _timer;
   void _onLongPressStart() async {
     final CameraController? cameraController = _controller;
+    if(cameraController?.value.isRecordingVideo == true) return;
     await cameraController?.prepareForVideoRecording();
 
     widget.onTimerStarted(15);
@@ -507,6 +508,7 @@ class _SmartFaceCameraState extends State<SmartFaceCamera> with WidgetsBindingOb
           _onLongPressFinished();
         }
       });
+      
       await cameraController?.startVideoRecording();
     } catch (e) {
       logError(e.toString());
